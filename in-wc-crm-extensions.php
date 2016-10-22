@@ -44,8 +44,11 @@ function incrm_init()
 	// Проверка наличия плагина wp-handsontable-core
 	if ( defined( 'WP_HOT_CORE_VERSION' )) 
 	{
+		// Регистрируем загрузкик классов
+		spl_autoload_register( 'incrm_class_loader' );
+			
 		// Инициализация плагина
-		// new INCRM_Plugin( INCRM_PATH, INCRM_URL );	
+		new INCRM_Plugin( INCRM_PATH, INCRM_URL );
 	}
 	else
 	{
@@ -65,7 +68,9 @@ function incrm_wp_hot_core_missing()
 }
 
 // Загрузкик классов
-function incrm_class_loader()
+function incrm_class_loader( $class )
 {
-	
+	$fileName = INCRM_PATH . 'classes/' . strtolower( $class ) . '.php';
+	if ( file_exists( $fileName ) )
+		include_once( $fileName );
 }
