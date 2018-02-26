@@ -39,7 +39,6 @@ class INCRM_Plugin
 		$this->loadModules();
 	}
 	
-	
 	/**
 	 * Загрузка и инициализация модулей
 	 * Все модули наследуются от класса INCRM_Module
@@ -54,4 +53,5 @@ class INCRM_Plugin
 			$this->modules[ $moduleName ] = new $moduleName( $this );
 		}
 	}
+	
 }

@@ -12,8 +12,11 @@ class INCRM_Clients_Table extends WP_HOT_Core
     {
         parent::__construct();
 		
-        // Обработчик, который формирует список пунктов самовывоза для предзагрузки
+        // Обработчик, который формирует список клиентов
 		$this->loadHandler = 'INCRM_Clients_Table::getClients';
+		
+		// AJAX обработчики
+		add_action( 'wp_ajax_incrm_get_crm_id', 'INCRM_Clients_Table::ajaxGetCRM_ID' );
     }
 
 
@@ -36,11 +39,14 @@ class INCRM_Clients_Table extends WP_HOT_Core
 		$email			= __( 'E-mail', INCRM );			// E-mail
 		$address 		= __( 'Address', INCRM );			// Адрес
 		$coordinator	= __( 'Coordinator', INCRM );		// Координатор
+		$categories		= __( 'Categories', INCRM );		// Категории клиента
+		$status			= __( 'Status', INCRM );			// Статус клиента
+		
 
 		
 		return "{
 			minSpareRows: 1,
-			colHeaders: ['$id', '$client_id', '$company', '$name', '$tarif', '$limit', '$phone', '$email', '$address', '$coordinator'],
+			colHeaders: ['$id', '$client_id', '$company', '$name', '$tarif', '$limit', '$phone', '$email', '$address', '$coordinator', '$categories', '$status'],
 			columns: [
 				{ data: 'id', 			type: 'numeric', 	readOnly: true },
 				{ data: 'client_id',	type: 'text' },			
@@ -50,13 +56,41 @@ class INCRM_Clients_Table extends WP_HOT_Core
 				{ data: 'limit',		type: 'text' },
 				{ data: 'phone',		type: 'text' },
 				{ data: 'email',		type: 'text' },
-				{ data: 'address',		type: 'text' },
-				{ data: 'coordinator',	type: 'text' }		
+				{ data: 'address',		type: 'text', 	readOnly: true  },
+				{ data: 'coordinator',	type: 'text', 	readOnly: true  },
+				{ data: 'categories',	type: 'text', 	readOnly: true  },
+				{ data: 'status',		type: 'text', 	readOnly: true  }
 			],
 			manualColumnResize: true,
 			// stretchH: 'all',
 			rowHeaders: true,
-			search: true
+			search: true,
+			contextMenu: {
+				items:{
+					crm_card:	{name:'Карточка клиента'},
+					user_card:	{name:'Карточка пользователя'}
+				},
+				callback: function (key, options) {
+					var clientId = currentTable.handsontable('getDataAtCell', options.end.row, 0);
+					
+					switch (key) {
+						case 'crm_card':
+							var data = { 
+								action	: 'incrm_get_crm_id',
+								userId	: clientId
+							};
+							$.post(ajaxurl, data, function(response) {
+								var clientId = parseInt( response );
+								location.assign('/wp-admin/admin.php?page=wc_crm&c_id=' + clientId);
+							});							
+							break;
+							
+						case 'user_card':
+							location.assign('/wp-admin/user-edit.php?user_id=' + clientId);
+							break;
+					}
+				}			
+			}
 		}";
     }
 	
@@ -94,6 +128,8 @@ class INCRM_Clients_Table extends WP_HOT_Core
 					'email'			=> $user->user_email,
 					'address'		=> self::getUserAddress( $user->ID ),
 					'coordinator'	=> self::getUserData( get_user_meta($user->ID, 'customer_agent', true), 'display_name' ),
+					'categories'	=> self::getUserCategories( $user->ID ),
+					'status'		=> self::getUserStatus( $user->ID )
 				);
 			}
 		}	
@@ -102,7 +138,7 @@ class INCRM_Clients_Table extends WP_HOT_Core
 	}
 	
 	/** 
-	 * Получение данных о польхователе
+	 * Получение данных о пользователе
 	 * Метод статичный, потому что вызывается Аяксом
 	 * 
 	 * @param int 		$userId		ID пользователя WordPress
@@ -184,5 +220,83 @@ class INCRM_Clients_Table extends WP_HOT_Core
 
 		// Адреса нет
 		return '';
+	}
+
+	/** 
+	 * Получение категорий клиента
+	 * Метод статичный, потому что вызывается Аяксом
+	 * 
+	 * @param int 	$userId		ID пользователя WordPress
+	 * @return string
+	 */
+    public static function getUserCategories( $userId ) 
+    {
+		if (! function_exists( 'wc_crm_get_taxonomies' ) )
+			return false;
+		
+		$categories = wc_crm_get_taxonomies();
+		$userCats = get_user_meta( $userId, 'customer_categories', true);
+	
+		if ( empty( $userCats ) )
+			return '';
+		
+		$result = '';
+		foreach ( $userCats as $userCat )
+			$result .= ', ' . $categories[$userCat];
+			
+		return mb_substr( $result, 2, mb_strlen( $result ) - 2  );  
+	}
+
+	/** 
+	 * Получение статуса клиента
+	 * Метод статичный, потому что вызывается Аяксом
+	 * 
+	 * @param int 	$userId		ID пользователя WordPress
+	 * @return string
+	 */
+    public static function getUserStatus( $userId ) 
+    {
+		if (! function_exists( 'wc_crm_get_customer' ) )
+			return false;
+		
+		$customer = wc_crm_get_customer( $userId, 'user_id' );
+		$status = wc_crm_get_status_by_slug( $customer->status );
+		return $status['status_name'];
 	}	
+	
+	
+
+	/** 
+	 * Получение категорий клиента
+	 * Метод статичный, потому что вызывается Аяксом
+	 * 
+	 * @param int 	$userId		ID пользователя WordPress
+	 * @return string
+	 */
+    public static function ajaxGetCRM_ID() 
+    {
+		// Значение элемента поиска
+		$userId = isset( $_POST[ 'userId' ] ) ? sanitize_text_field( $_POST[ 'userId' ] ) : 0;
+		if ( $userId <= 0 )
+		{
+			echo -1;
+			wp_die();
+		}
+			
+		if ( function_exists( 'wc_crm_get_customer' ) )
+		{
+			$customer = wc_crm_get_customer( $userId, 'user_id' );
+			$clientId = ( $customer ) ? $customer->c_id : -2;
+			echo $clientId;
+			wp_die();			
+		}
+		else
+		{
+			echo -3;
+			wp_die();			
+		}
+	}
+
+
+	
 }

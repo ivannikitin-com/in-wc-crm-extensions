@@ -28,10 +28,6 @@ class INCRM_Clients extends INCRM_Module
 		));
 		
 	}
-
-
-
-
 	
 	/**
 	 * Вывод списка клиентов

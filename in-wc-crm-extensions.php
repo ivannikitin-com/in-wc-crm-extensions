@@ -39,7 +39,7 @@ add_action( 'init', 'incrm_init' );
 function incrm_init() 
 {
 	// Локализация плагина
-	load_plugin_textdomain( INUG, false, dirname( plugin_basename( __FILE__ ) ) . '/lang' );		
+	load_plugin_textdomain( INCRM, false, dirname( plugin_basename( __FILE__ ) ) . '/lang' );		
 		
 	// Проверка наличия плагина wp-handsontable-core
 	if ( defined( 'WP_HOT_CORE_VERSION' )) 
@@ -73,4 +73,56 @@ function incrm_class_loader( $class )
 	$fileName = INCRM_PATH . 'classes/' . strtolower( $class ) . '.php';
 	if ( file_exists( $fileName ) )
 		include_once( $fileName );
+}
+
+// Работа при активации и деактивации
+register_activation_hook( __FILE__, 'incrm_activate' );				// Активация плагина
+register_deactivation_hook( __FILE__, 'incrm_deactivate' );			// Деактивация плагина
+
+// Активация плагина
+function incrm_activate()
+{
+	// Добавление требуемых ролей пользователей
+	incrm_set_role( 'customer', 'Клиент', array(		// Роль Клиент
+		'view_customer_menu',							// Может просматривать меню клиента в личном кабинете
+	));
+	
+	incrm_set_role( 'employee', 'Сотрудник', array(		// Роль Сотрудник
+		'view_employee_menu',							// Может просматривать меню сотрудника в личном кабинете
+		'view_employee_report',							// Может просматривать свой отчет
+		'edit_employee_report',							// Может редактировать свой отчет
+	));
+	
+	incrm_set_role( 'head', 'Руководство', array(		// Роль Руководство
+		'view_employee_menu',							// Может просматривать меню сотрудника в личном кабинете
+		'view_employee_report',							// Может просматривать свой отчет
+		'edit_employee_report',							// Может редактировать свой отчет
+		'view_employee_reports_all',					// Может просматривать отчеты других сотрудников
+		'edit_employee_reports_all',					// Может редактировать отчеты других сотрудников
+	));
+	
+}
+
+// Деактивация плагина
+function incrm_deactivate()
+{
+	// Пока ничего
+}
+
+// Проверка и установка роли пользователя
+// При неоьбходимости добавляет новую роль и устанавливает разрешения
+function incrm_set_role( $role, $roleName, $capabilities )
+{
+	// Получим роль
+	$userRole = get_role( $role );
+	
+	// Если роли нет, создадим ее
+	if ( ! $userRole )
+		$userRole = add_role( $role, $roleName );
+	
+	// Установим разрешения
+	foreach ( $capabilities as $capability )
+	{
+		$userRole->add_cap( $capability );
+	}
 }
