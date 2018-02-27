@@ -1,0 +1,15 @@
+/* Поля метабокса */
+.incrm-field
+{
+	margin-bottom: 1em;
+}
+
+.incrm-field label
+{
+	display: block;
+}
+
+.incrm-field input
+{
+	width: 100%;
+}

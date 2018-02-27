@@ -36,6 +36,11 @@ define( 'INCRM', 		'in-wc-crm-extensions' );		// Название плагина
 class INCRM_Plugin
 {
 	/**
+	 * Версия
+	 */
+	public $version;
+	
+	/**
 	 * Путь к папке плагина
 	 */
 	public $path;
@@ -51,6 +56,7 @@ class INCRM_Plugin
 	public function __construct()
 	{
 		// Инициализация свойств
+		$this->version = '2.0';
 		$this->path = plugin_dir_path( __FILE__ );
 		$this->url = plugin_dir_url( __FILE__ );
 		
@@ -60,6 +66,7 @@ class INCRM_Plugin
 		// Хуки
 		add_action( 'plugins_loaded', array( $this, 'plugins_loaded' ) );
 		add_action( 'init', array( $this, 'init' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ) );
 	}
 	
     /**
@@ -105,9 +112,18 @@ class INCRM_Plugin
 	public function init()
 	{
 		$this->customerExtraFields = new INCRM_Customer_Extra_Fields( $this );		// Дополнительные поля клиентов
+		
+
 	}	
 	
-	
+	/**
+	 * Загрузка скриптов для админки
+	 */
+	public function admin_enqueue_scripts()
+	{
+        wp_register_style( INCRM . '-admin', $this->url . 'asserts/css/admin.css', false, $this->version );
+        wp_enqueue_style( INCRM . '-admin' );		
+	}
 	
 }
 
